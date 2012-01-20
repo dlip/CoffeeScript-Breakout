@@ -29,19 +29,39 @@ $ ->
     constructor: (@x, @y) ->
 
   class Ball extends Sprite
-    pos: new Vector 75, 75
-    vel: new Vector 60, 70
+    constructor: (@screen, @paddle) ->
+      @pos = new Vector 75, 75
+      @vel = new Vector 60, 70
+
     update: (time) ->
       #todo check it will be off the screen this frame before updating position
       @pos.x += @vel.x * time
       @pos.y += @vel.y * time
       if (@pos.x > @screen.width || @pos.x < 0)
         @vel.x *= -1
-      if (@pos.y > @screen.height || @pos.y < 0)
+      if (@pos.y < 0)
         @vel.y *= -1
+      if (@pos.y > @screen.height)
+        #check collides with paddle
+        if (@hasCollidedWithPaddle())
+          @vel.y *= -1
+
+    hasCollidedWithPaddle: ->
+      if(@pos.x > @paddle.pos.x && @pos.x < @paddle.pos.x + @paddle.size.x)
+        return true
+      false
+
 
     draw: ->
       @screen.circle @pos.x, @pos.y, 10
+
+  class Paddle extends Sprite
+    constructor: (@screen) ->
+      @pos = new Vector @screen.width /2 - 40, @screen.height - 10
+      @size = new Vector 75, 10
+
+    draw: ->
+      @screen.rect @pos.x, @pos.y, @size.x, @size.y
 
   class Timer
     start: ->
@@ -61,11 +81,13 @@ $ ->
       @screen = new Screen 300, 150
       @timer = new Timer
       @sprites = []
-      @sprites.push new Ball @screen
+      paddle = new Paddle @screen
+      @sprites.push paddle
+      @sprites.push new Ball @screen, paddle
 
     run: ->
       @timer.start()
-      setInterval ( => @update()) , 10
+      setInterval ( => @update()) , 17
 
     update: ->
       @timer.advance()
