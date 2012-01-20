@@ -20,6 +20,14 @@ $ ->
       @ctx.closePath()
       @ctx.fill()
 
+  class MouseInput
+    constructor: ->
+      @pos = new Vector 0, 0
+      $(document).mousemove((event) => @onMouseMove(event))
+    onMouseMove: (event) ->
+      @pos.x = event.pageX
+      @pos.y = event.pageY
+
   class Sprite
     constructor: (@screen) ->
     update: (time) ->
@@ -56,9 +64,12 @@ $ ->
       @screen.circle @pos.x, @pos.y, 10
 
   class Paddle extends Sprite
-    constructor: (@screen) ->
+    constructor: (@screen, @mouseInput) ->
       @pos = new Vector @screen.width /2 - 40, @screen.height - 10
       @size = new Vector 75, 10
+
+    update: ->
+      @pos.x = @mouseInput.pos.x
 
     draw: ->
       @screen.rect @pos.x, @pos.y, @size.x, @size.y
@@ -80,8 +91,9 @@ $ ->
       @paused = false
       @screen = new Screen 300, 150
       @timer = new Timer
+      @mouseInput = new MouseInput
       @sprites = []
-      paddle = new Paddle @screen
+      paddle = new Paddle @screen, @mouseInput
       @sprites.push paddle
       @sprites.push new Ball @screen, paddle
 
