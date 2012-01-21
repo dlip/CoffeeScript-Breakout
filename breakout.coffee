@@ -6,18 +6,22 @@ $ ->
       @ctx.onclick = ->
         window.location = canvas.toDataURL 'image/png'
     clear: ->
-      @ctx.clearRect(0, 0, 300, 300)
-      @ctx.fillStyle='#AAAAAA'
-      @ctx.fillRect(0, 0, 300, 300)
+      @ctx.clearRect(0, 0, @width, @height)
       @ctx.fillStyle='#000000'
+      @ctx.fillRect(0, 0, @width, @height)
+      @ctx.fillStyle='#FFFFFF'
 
     circle: (x, y, r) ->
+      @ctx.fillStyle='#FFFFFF'
       @ctx.beginPath()
       @ctx.arc(x, y, r, 0, Math.PI*2, true)
       @ctx.closePath()
       @ctx.fill()
 
-    rect: (x, y, w, h) ->
+    rect: (x, y, w, h, color) ->
+      @ctx.fillStyle='#000000'
+      if color?
+        @ctx.fillStyle=color
       @ctx.beginPath()
       @ctx.rect(x,y,w,h)
       @ctx.closePath()
@@ -57,14 +61,14 @@ $ ->
     constructor: (@x, @y) ->
 
   class Block extends Sprite
-    constructor: (@screen, x, y, width, height) ->
+    constructor: (@screen, x, y, width, height, @color) ->
       @pos = new Vector x, y
       @size = new Vector width, height
       @destroyed = false
 
     draw: ->
       return if @destroyed
-      @screen.rect @pos.x, @pos.y, @size.x, @size.y
+      @screen.rect @pos.x, @pos.y, @size.x, @size.y, @color
 
   class Blocks extends Sprite
     constructor: (@screen) ->
@@ -73,11 +77,12 @@ $ ->
       @blockWidth = (@screen.width / @cols) - 1
       @blockHeight = 15
       @blockPadding = 1
+      rowcolors = ["#FF1C0A", "#FFFD0A", "#00A308", "#0008DB", "#EB0093"]
       @blocks = new Array @rows
       for x in [0...@rows]
         @blocks[x] = new Array @cols
         for y in [0...@cols]
-          @blocks[x][y] = new Block @screen, x * (@blockWidth + @blockPadding) + @blockPadding, y * (@blockHeight + @blockPadding) + @blockPadding, @blockWidth, @blockHeight
+          @blocks[x][y] = new Block @screen, x * (@blockWidth + @blockPadding) + @blockPadding, y * (@blockHeight + @blockPadding) + @blockPadding, @blockWidth, @blockHeight, rowcolors[y]
 
     draw: ->
       for x in [0...@rows]
@@ -88,12 +93,12 @@ $ ->
   class Ball extends Sprite
     constructor: (@screen, @paddle, @blocks) ->
       @size = new Vector 10, 10
-      @vel = new Vector 90, -100
+      @vel = new Vector 0, 190
       @reset()
 
     reset: ->
-      @pos = new Vector @paddle.pos.x + @paddle.size.x / 2, 140
-      if @vel.y > 0
+      @pos = new Vector @paddle.pos.x + @paddle.size.x / 2, @paddle.pos.y - 190
+      if @vel.y < 0
         @vel.y *= -1
 
     isOut: ->
@@ -125,6 +130,8 @@ $ ->
       if (ballBottom.y < paddleTop && ballBottom.y + nextOffset.y > paddleTop)
         #check collides with paddle
         if (@hasCollidedWithPaddle() and @vel.y > 0)
+          multiplier = ((@pos.x-(@paddle.pos.x + @paddle.size.x / 2)) / (@paddle.size.x / 2))
+          @vel.x = 150 * multiplier
           @vel.y *= -1
 
       #check blocks collision
@@ -157,7 +164,7 @@ $ ->
       @pos.y += nextOffset.y
 
     hasCollidedWithPaddle: ->
-      if(@pos.x > @paddle.pos.x && @pos.x < @paddle.pos.x + @paddle.size.x)
+      if(@pos.x + @size.x > @paddle.pos.x && @pos.x - @size.x < @paddle.pos.x + @paddle.size.x)
         return true
       false
 
@@ -175,16 +182,17 @@ $ ->
       @size = new Vector 75, 10
       @pos = new Vector (@screen.width / 2) - (@size.x / 2), @screen.height - 10
       @lastMousePos = @mouseInput.pos.x
+      @color = '#444444'
 
     update:(time) ->
       if @lastMousePos != @mouseInput.pos.x
         @pos.x = @mouseInput.pos.x - @size.x / 2
 
       if @keyboardInput.left is true
-        @pos.x -= 800 * time
+        @pos.x -= 600 * time
 
       if @keyboardInput.right is true
-        @pos.x += 800 * time
+        @pos.x += 600 * time
 
       if @pos.x < 0
         @pos.x = 0
@@ -193,7 +201,7 @@ $ ->
       @lastMousePos = @mouseInput.pos.x
 
     draw: ->
-      @screen.rect @pos.x, @pos.y, @size.x, @size.y
+      @screen.rect @pos.x, @pos.y, @size.x, @size.y, @color
 
   class Timer
     start: ->
@@ -210,7 +218,7 @@ $ ->
   class Breakout
     constructor: ->
       @paused = false
-      @screen = new Screen 300, 150
+      @screen = new Screen 300, 300
       @timer = new Timer
       @mouseInput = new MouseInput
       @keyboardInput = new KeyboardInput
