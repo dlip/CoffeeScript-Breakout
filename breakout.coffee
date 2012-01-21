@@ -7,6 +7,9 @@ $ ->
         window.location = canvas.toDataURL 'image/png'
     clear: ->
       @ctx.clearRect(0, 0, 300, 300)
+      @ctx.fillStyle='#AAAAAA'
+      @ctx.fillRect(0, 0, 300, 300)
+      @ctx.fillStyle='#000000'
 
     circle: (x, y, r) ->
       @ctx.beginPath()
@@ -37,13 +40,13 @@ $ ->
 
     onKeyDown: (event) ->
       switch event.keyCode
-        when 39 then @right = true
-        when 37 then @left = true
+        when 39,73 then @right = true
+        when 37,78 then @left = true
 
     onKeyUp: (event) ->
       switch event.keyCode
-        when 39 then @right = false
-        when 37 then @left = false
+        when 39,73 then @right = false
+        when 37,78 then @left = false
 
   class Sprite
     constructor: (@screen) ->
@@ -56,20 +59,37 @@ $ ->
   class Ball extends Sprite
     constructor: (@screen, @paddle) ->
       @pos = new Vector 75, 75
-      @vel = new Vector 60, 70
+      @vel = new Vector 90, 100
+      @size = new Vector 10, 10
+
+    reset: ->
+      @pos = new Vector 75, 75
+
+    isOut: ->
+      @pos.y - @size.y > @screen.height
 
     update: (time) ->
+      nextOffset = new Vector 0, 0
+      nextOffset.x = @vel.x * time
+      nextOffset.y = @vel.y * time
       #todo check it will be off the screen this frame before updating position
-      @pos.x += @vel.x * time
-      @pos.y += @vel.y * time
-      if (@pos.x > @screen.width || @pos.x < 0)
+      if (@pos.x - @size.x < 0 && @vel.x < 0)
         @vel.x *= -1
-      if (@pos.y < 0)
+      else if (@pos.x + @size.x > @screen.width && @vel.x > 0)
+        @vel.x *= -1
+      else if (@pos.y - @size.y < 0 && @vel.y < 0)
         @vel.y *= -1
-      if (@pos.y > @screen.height)
+
+      ballBottom = @pos.y + @size.y
+      paddleTop = @screen.height - @paddle.size.y
+
+      if (ballBottom < paddleTop && ballBottom + nextOffset.y > paddleTop)
         #check collides with paddle
-        if (@hasCollidedWithPaddle())
+        if (@hasCollidedWithPaddle() and @vel.y > 0)
           @vel.y *= -1
+
+      @pos.x += nextOffset.x
+      @pos.y += nextOffset.y
 
     hasCollidedWithPaddle: ->
       if(@pos.x > @paddle.pos.x && @pos.x < @paddle.pos.x + @paddle.size.x)
@@ -88,7 +108,7 @@ $ ->
 
     update:(time) ->
       if @lastMousePos != @mouseInput.pos.x
-        @pos.x = @mouseInput.pos.x
+        @pos.x = @mouseInput.pos.x - @size.x / 2
 
       if @keyboardInput.left is true
         @pos.x -= 800 * time
@@ -96,6 +116,10 @@ $ ->
       if @keyboardInput.right is true
         @pos.x += 800 * time
 
+      if @pos.x < 0
+        @pos.x = 0
+      if @pos.x + @size.x > @screen.width
+        @pos.x = @screen.width - @size.x
       @lastMousePos = @mouseInput.pos.x
 
     draw: ->
@@ -123,16 +147,19 @@ $ ->
       @sprites = []
       paddle = new Paddle @screen, @mouseInput, @keyboardInput
       @sprites.push paddle
-      @sprites.push new Ball @screen, paddle
-
+      @ball = new Ball @screen, paddle
+      @sprites.push @ball
     run: ->
       @timer.start()
-      setInterval ( => @update()) , 17
+      setInterval ( => @update()) , 1000 / 50 #fps
 
     update: ->
       @timer.advance()
       if(@paused)
         return
+
+      if @ball.isOut()
+        @ball.reset()
       @screen.clear()
 
       for sprite in @sprites
