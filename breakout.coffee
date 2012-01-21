@@ -28,6 +28,23 @@ $ ->
       @pos.x = event.pageX
       @pos.y = event.pageY
 
+  class KeyboardInput
+    constructor: ->
+      @left = false
+      @right = false
+      $(document).keydown((event)=>@onKeyDown(event))
+      $(document).keyup((event)=>@onKeyUp(event))
+
+    onKeyDown: (event) ->
+      switch event.keyCode
+        when 39 then @right = true
+        when 37 then @left = true
+
+    onKeyUp: (event) ->
+      switch event.keyCode
+        when 39 then @right = false
+        when 37 then @left = false
+
   class Sprite
     constructor: (@screen) ->
     update: (time) ->
@@ -64,12 +81,22 @@ $ ->
       @screen.circle @pos.x, @pos.y, 10
 
   class Paddle extends Sprite
-    constructor: (@screen, @mouseInput) ->
+    constructor: (@screen, @mouseInput, @keyboardInput) ->
       @pos = new Vector @screen.width /2 - 40, @screen.height - 10
       @size = new Vector 75, 10
+      @lastMousePos = @mouseInput.pos.x
 
-    update: ->
-      @pos.x = @mouseInput.pos.x
+    update:(time) ->
+      if @lastMousePos != @mouseInput.pos.x
+        @pos.x = @mouseInput.pos.x
+
+      if @keyboardInput.left is true
+        @pos.x -= 800 * time
+
+      if @keyboardInput.right is true
+        @pos.x += 800 * time
+
+      @lastMousePos = @mouseInput.pos.x
 
     draw: ->
       @screen.rect @pos.x, @pos.y, @size.x, @size.y
@@ -92,8 +119,9 @@ $ ->
       @screen = new Screen 300, 150
       @timer = new Timer
       @mouseInput = new MouseInput
+      @keyboardInput = new KeyboardInput
       @sprites = []
-      paddle = new Paddle @screen, @mouseInput
+      paddle = new Paddle @screen, @mouseInput, @keyboardInput
       @sprites.push paddle
       @sprites.push new Ball @screen, paddle
 
