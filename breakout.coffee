@@ -56,14 +56,45 @@ $ ->
   class Vector
     constructor: (@x, @y) ->
 
+  class Block extends Sprite
+    constructor: (@screen, x, y, width, height) ->
+      @pos = new Vector x, y
+      @size = new Vector width, height
+      @destroyed = false
+
+    draw: ->
+      return if @destroyed
+      @screen.rect @pos.x, @pos.y, @size.x, @size.y
+
+  class Blocks extends Sprite
+    constructor: (@screen) ->
+      @rows = 5
+      @cols = 5
+      @blockWidth = (@screen.width / @cols) - 1
+      @blockHeight = 15
+      @blockPadding = 1
+      @blocks = new Array @rows
+      for x in [0...@rows]
+        @blocks[x] = new Array @cols
+        for y in [0...@cols]
+          @blocks[x][y] = new Block @screen, x * (@blockWidth + @blockPadding) + @blockPadding, y * (@blockHeight + @blockPadding) + @blockPadding, @blockWidth, @blockHeight
+
+    draw: ->
+      for x in [0...@rows]
+        for y in [0...@cols]
+          @blocks[x][y].draw()
+
+
   class Ball extends Sprite
-    constructor: (@screen, @paddle) ->
-      @pos = new Vector 75, 75
-      @vel = new Vector 90, 100
+    constructor: (@screen, @paddle, @blocks) ->
       @size = new Vector 10, 10
+      @vel = new Vector 90, -100
+      @reset()
 
     reset: ->
-      @pos = new Vector 75, 75
+      @pos = new Vector @paddle.pos.x + @paddle.size.x / 2, 140
+      if @vel.y > 0
+        @vel.y *= -1
 
     isOut: ->
       @pos.y - @size.y > @screen.height
@@ -72,21 +103,55 @@ $ ->
       nextOffset = new Vector 0, 0
       nextOffset.x = @vel.x * time
       nextOffset.y = @vel.y * time
+
+      ballBottom = new Vector @pos.x, @pos.y + @size.y
+      ballTop = new Vector @pos.x, @pos.y - @size.y
+      ballLeft = new Vector @pos.x - @size.x, @pos.y
+      ballRight = new Vector @pos.x + @size.x, @pos.y
+
       #todo check it will be off the screen this frame before updating position
-      if (@pos.x - @size.x < 0 && @vel.x < 0)
+
+      #check wall collision
+      if (ballLeft.x < 0 && @vel.x < 0)
         @vel.x *= -1
-      else if (@pos.x + @size.x > @screen.width && @vel.x > 0)
+      else if (ballRight.x > @screen.width && @vel.x > 0)
         @vel.x *= -1
-      else if (@pos.y - @size.y < 0 && @vel.y < 0)
+      else if (ballTop.y < 0 && @vel.y < 0)
         @vel.y *= -1
 
-      ballBottom = @pos.y + @size.y
+      #check paddle collision
       paddleTop = @screen.height - @paddle.size.y
 
-      if (ballBottom < paddleTop && ballBottom + nextOffset.y > paddleTop)
+      if (ballBottom.y < paddleTop && ballBottom.y + nextOffset.y > paddleTop)
         #check collides with paddle
         if (@hasCollidedWithPaddle() and @vel.y > 0)
           @vel.y *= -1
+
+      #check blocks collision
+      for x in [0...@blocks.rows]
+        for y in [0...@blocks.cols]
+          block = @blocks.blocks[x][y]
+          continue if block.destroyed
+          contact = false
+
+          if(Collision.pointInRect(ballTop, block.pos, block.size) and @vel.y < 0)
+            contact = true
+            @vel.y *= -1
+
+          if(Collision.pointInRect(ballBottom, block.pos, block.size) and @vel.y > 0)
+            contact = true
+            @vel.y *= -1
+
+          if(Collision.pointInRect(ballLeft, block.pos, block.size) and @vel.x < 0)
+            contact = true
+            @vel.x *= -1
+
+          if(Collision.pointInRect(ballRight, block.pos, block.size) and @vel.x > 0)
+            contact = true
+            @vel.x *= -1
+
+          block.destroyed = true if contact
+
 
       @pos.x += nextOffset.x
       @pos.y += nextOffset.y
@@ -96,14 +161,19 @@ $ ->
         return true
       false
 
-
     draw: ->
       @screen.circle @pos.x, @pos.y, 10
 
+  class Collision
+    @pointInRect: (point, rectPos, rectSize) ->
+      if(point.x > rectPos.x and point.x < rectPos.x + rectSize.x and point.y > rectPos.y and point.y < rectPos.y + rectSize.y)
+        return true
+      false
+
   class Paddle extends Sprite
     constructor: (@screen, @mouseInput, @keyboardInput) ->
-      @pos = new Vector @screen.width /2 - 40, @screen.height - 10
       @size = new Vector 75, 10
+      @pos = new Vector (@screen.width / 2) - (@size.x / 2), @screen.height - 10
       @lastMousePos = @mouseInput.pos.x
 
     update:(time) ->
@@ -147,7 +217,9 @@ $ ->
       @sprites = []
       paddle = new Paddle @screen, @mouseInput, @keyboardInput
       @sprites.push paddle
-      @ball = new Ball @screen, paddle
+      blocks = new Blocks @screen
+      @sprites.push blocks
+      @ball = new Ball @screen, paddle, blocks
       @sprites.push @ball
     run: ->
       @timer.start()
